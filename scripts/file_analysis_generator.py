@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """file_analysis_generator.py Version 0.1 """
 
@@ -9,6 +9,7 @@ import hashlib
 import argparse
 import os
 from csv import writer
+from pathlib import Path
 
 def calculate_sha_256_file(filename):
     '''
@@ -31,13 +32,28 @@ def get_virus_total_analysis(filename):
     TBD
     '''
 
+def append_to_csv_file(filename, data):
+    """[Append to CSV file ]
+
+    Args:
+        filename ([string]): [File Name Path]
+        data ([list]): [Row Entry for CSV file]
+    """
+
+    with open(filename, 'a+', newline='') as write_obj:
+        csv_writer = writer(write_obj)
+        # Add contents of list as last row in the csv file
+        csv_writer.writerow(data)
+
 def do_file_analysis(filename, check_mime=True, check_sha256=True, output_path_file=""):
     '''
     Calculate SHA-256, Mime type, check for VirusTotal analysis with hash file and then 
     add it to csv file
     '''
+    
     file_content = []
-    file_content.append(filename)
+    file_content.append(os.path.basename(filename))
+    file_content.append(os.stat(filename).st_size)
     if (check_sha256 == True):
         sha_256 = calculate_sha_256_file(filename)
         file_content.append(sha_256)
@@ -46,15 +62,14 @@ def do_file_analysis(filename, check_mime=True, check_sha256=True, output_path_f
         file_content.append(mime_type)
 
     if (len(output_path_file) != 0):
-        append_to_csv_file(output_path_file, file_content)
 
-def append_to_csv_file(filename, data):
-    '''
-    '''
-    with open(filename, 'a+', newline='') as write_obj:
-        csv_writer = writer(write_obj)
-        # Add contents of list as last row in the csv file
-        csv_writer.writerow(data)
+        # Add header if file is a new file
+        my_file = Path(output_path_file)
+        if not my_file.is_file():
+            file_header = ["FileName", "FileSize", "SHA-256", "MimeType", "VirusTotal result",]
+            append_to_csv_file(output_path_file, file_header)
+
+        append_to_csv_file(output_path_file, file_content)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='File Analysis Generator')
