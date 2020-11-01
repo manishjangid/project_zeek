@@ -2,7 +2,7 @@
 
 [![N|Solid](https://zeek.org/wp-content/uploads/2019/09/logo.png)]()
 
-# File Analysis Module
+## File Analysis Module
 [![N|Solid](https://www.python.org/static/community_logos/python-powered-w-100x40.png)]()
 
 # Features
