@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# Need virustotal api installed for python3 by 
+# pip3 install virustotal-api
 """file_analysis_generator.py Version 0.1 """
 
 __author__      = "Manish Kumar"
@@ -8,6 +10,7 @@ __copyright__   = "Copyright 2020, Project Zeek"
 import hashlib
 import argparse
 import os
+import magic
 from csv import writer
 from pathlib import Path
 
@@ -24,8 +27,10 @@ def calculate_sha_256_file(filename):
 
 def calculate_mime_type(filename):
     '''
-    TBD
+    Get mime type for file specified
     '''
+    mime = magic.Magic(mime=True)
+    return mime.from_file(filename)
 
 def get_virus_total_analysis(filename):
     '''
