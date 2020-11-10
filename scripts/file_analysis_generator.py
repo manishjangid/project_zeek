@@ -12,6 +12,7 @@ import argparse
 import os
 import magic
 import response
+import requests
 from csv import writer
 from pathlib import Path
 from virus_total_apis import PublicApi as VirusTotalPublicApi
@@ -44,6 +45,11 @@ def get_virus_total_analysis(filename):
     with open(filename,"rb") as f:
         md5 = hashlib.md5(f.read()).hexdigest()
         response = vt.get_file_report(md5)
+        if response_code == 0:
+            url = 'https://www.virustotal.com/vtapi/v2/file/scan'
+            params = {'apikey': api_key }
+            files = {'file': (filename, open(filename, 'rb'))}
+            response = requests.post(url, files=files, params=params)
     print(response.json())
 
 def append_to_csv_file(filename, data):
