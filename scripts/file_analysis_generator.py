@@ -11,8 +11,10 @@ import hashlib
 import argparse
 import os
 import magic
+import response
 from csv import writer
 from pathlib import Path
+from virus_total_apis import PublicApi as VirusTotalPublicApi
 
 def calculate_sha_256_file(filename):
     '''
@@ -34,8 +36,15 @@ def calculate_mime_type(filename):
 
 def get_virus_total_analysis(filename):
     '''
-    TBD
+    I made a virus total account for the api key.
+    here's my key: 5e6d601d5b50d952371389fa2b363a86cfc41c9e5a7278bb53f9da03b0521934
     '''
+    api_key = "5e6d601d5b50d952371389fa2b363a86cfc41c9e5a7278bb53f9da03b0521934"
+    vt = VirusTotalPublicApi(api_key)
+    with open(filename,"rb") as f:
+        md5 = hashlib.md5(f.read()).hexdigest()
+        response = vt.get_file_report(md5)
+    print(response.json())
 
 def append_to_csv_file(filename, data):
     """[Append to CSV file ]
