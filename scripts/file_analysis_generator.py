@@ -2,20 +2,22 @@
 
 # Need virustotal api installed for python3 by 
 # pip3 install virustotal-api
-"""file_analysis_generator.py Version 0.1 """
+# pip3 install python-magic
+"""file_analysis_generator.py Version 0.2 """
 
 __author__      = "Manish Kumar"
 __copyright__   = "Copyright 2020, Project Zeek"
 
 import hashlib
 import argparse
+import time
 import os
 import magic
-import response
 import requests
 from csv import writer
 from pathlib import Path
 from virus_total_apis import PublicApi as VirusTotalPublicApi
+
 
 def calculate_sha_256_file(filename):
     '''
@@ -35,22 +37,58 @@ def calculate_mime_type(filename):
     mime = magic.Magic(mime=True)
     return mime.from_file(filename)
 
-def get_virus_total_analysis(filename):
+def _return_response_and_status_code(response, json_results=True):
+    """ Output the requests response content or content as json and status code
+    :rtype : dict
+    :param response: requests response object
+    :param json_results: Should return JSON or raw content
+    :return: dict containing the response content and/or the status code with error string.
+    """
+    if response.status_code == requests.codes.ok:
+        return dict(results=response.json() if json_results else response.content, response_code=response.status_code)
+    elif response.status_code == 400:
+        return dict(
+            error='package sent is either malformed or not within the past 24 hours.',
+            response_code=response.status_code)
+    elif response.status_code == 204:
+        return dict(
+            error='You exceeded the public API request rate limit (4 requests of any nature per minute)',
+            response_code=response.status_code)
+    elif response.status_code == 403:
+        return dict(
+            error='You tried to perform calls to functions for which you require a Private API key.',
+            response_code=response.status_code)
+    elif response.status_code == 404:
+        return dict(error='File not found.', response_code=response.status_code)
+    else:
+        return dict(response_code=response.status_code)
+
+def send_file_to_virus_total(filename):
+
+    url = 'https://www.virustotal.com/vtapi/v2/file/scan'
+
+    params = {'apikey': '5e6d601d5b50d952371389fa2b363a86cfc41c9e5a7278bb53f9da03b0521934'}
+
+    files = {'file': (filename, open(filename, 'rb'))}
+
+    response = requests.post(url, files=files, params=params)
+    print(response.json())
+
+def get_virus_total_analysis(sha_256):
     '''
     I made a virus total account for the api key.
     here's my key: 5e6d601d5b50d952371389fa2b363a86cfc41c9e5a7278bb53f9da03b0521934
     '''
     api_key = "5e6d601d5b50d952371389fa2b363a86cfc41c9e5a7278bb53f9da03b0521934"
     vt = VirusTotalPublicApi(api_key)
-    with open(filename,"rb") as f:
-        md5 = hashlib.md5(f.read()).hexdigest()
-        response = vt.get_file_report(md5)
-        if response_code == 0:
-            url = 'https://www.virustotal.com/vtapi/v2/file/scan'
-            params = {'apikey': api_key }
-            files = {'file': (filename, open(filename, 'rb'))}
-            response = requests.post(url, files=files, params=params)
-    print(response.json())
+    response = vt.get_file_report(sha_256)
+    params = {'apikey': api_key, 'resource': sha_256}
+    try:
+        response = requests.get("https://www.virustotal.com/vtapi/v2/" + 'file/report', params=params, timeout=None)
+    except requests.RequestException as e:
+        return dict(error=str(e))
+
+    return _return_response_and_status_code(response)
 
 def append_to_csv_file(filename, data):
     """[Append to CSV file ]
@@ -72,15 +110,27 @@ def do_file_analysis(filename, check_mime=True, check_sha256=True, output_path_f
     '''
     
     file_content = []
+    sha_256 = ""
     file_content.append(os.path.basename(filename))
     file_content.append(os.stat(filename).st_size)
     if (check_sha256 == True):
         sha_256 = calculate_sha_256_file(filename)
         file_content.append(sha_256)
+        
     if (check_mime == True):
         mime_type = calculate_mime_type(filename)
         file_content.append(mime_type)
 
+    if (check_sha256 == True):
+        is_malicious_dict = get_virus_total_analysis(sha_256)
+        print(is_malicious_dict)
+        if ("positives" not in is_malicious_dict["results"]):
+            file_content.append("Not Scanned in VirusTotal")
+        elif (is_malicious_dict["results"]["positives"] != 0):
+            file_content.append("Malicious")
+        else:
+            file_content.append("Benign") 
+   
     if (len(output_path_file) != 0):
 
         # Add header if file is a new file
@@ -104,4 +154,3 @@ if __name__ == '__main__':
             if entry.is_file():
                 print("File Name: ", entry.name, "Path: ", entry.path)
                 do_file_analysis(entry.path,output_path_file = args.write_to_csv)
-    
