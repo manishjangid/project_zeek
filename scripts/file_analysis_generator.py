@@ -143,14 +143,25 @@ def do_file_analysis(filename, check_mime=True, check_sha256=True, output_path_f
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='File Analysis Generator')
-    parser.add_argument('--workspace', metavar='directory_path', required=True,
+    parser.add_argument('--workspace', metavar='directory_path', required=False,
                         help='the path to object files')
-    parser.add_argument('--write_to_csv', metavar='output_directory_path', required=True,
+    parser.add_argument('--write_to_csv', metavar='output_directory_path', required=False,
                         help='path to output csv file')
+    parser.add_argument('--mode', metavar='mode', required=True,
+                        help='Scan mode: submit files/retrieve files')
     args = parser.parse_args()
 
     with os.scandir(args.workspace) as directory:
         for entry in directory:
             if entry.is_file():
                 print("File Name: ", entry.name, "Path: ", entry.path)
-                do_file_analysis(entry.path,output_path_file = args.write_to_csv)
+                if (args.mode == "submit"):
+                    # There is a limit of 4 transactions per minute so we will limit it by 20 seconds per request
+                    send_file_to_virus_total(entry.path)
+                    time.sleep(20)
+                elif (args.mode == "analyse"):
+                    do_file_analysis(entry.path,output_path_file = args.write_to_csv)
+                else:
+                    print("Invalid mode : valid is (submit/analyse)")
+                    break
+
