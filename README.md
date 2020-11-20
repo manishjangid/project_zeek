@@ -25,7 +25,7 @@ Install the dependencies for the python module
  - Write MORE Tests
  - 
  
- # Screenshot
+ # File Submissions exported from Python Module 
  ![](scripts/images/table.png?raw=true)
 License
 ----
