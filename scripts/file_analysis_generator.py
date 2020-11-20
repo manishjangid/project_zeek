@@ -10,6 +10,8 @@ __copyright__   = "Copyright 2020, Project Zeek"
 
 import hashlib
 import argparse
+import sys
+import datetime
 import time
 import os
 import magic
@@ -18,6 +20,9 @@ from csv import writer
 from pathlib import Path
 from virus_total_apis import PublicApi as VirusTotalPublicApi
 
+
+total_files_scanned = 0
+api_key = "5e6d601d5b50d952371389fa2b363a86cfc41c9e5a7278bb53f9da03b0521934"
 
 def calculate_sha_256_file(filename):
     '''
@@ -64,24 +69,21 @@ def _return_response_and_status_code(response, json_results=True):
         return dict(response_code=response.status_code)
 
 def send_file_to_virus_total(filename):
-
+    global vt
+    print("Sending file to VirusTotal :: ->>>>>>")
     url = 'https://www.virustotal.com/vtapi/v2/file/scan'
-
     params = {'apikey': '5e6d601d5b50d952371389fa2b363a86cfc41c9e5a7278bb53f9da03b0521934'}
-
     files = {'file': (filename, open(filename, 'rb'))}
-
     response = requests.post(url, files=files, params=params)
+    print(">>>>>>>>>>>>>>>>>>> Got Response >>>>>>>>>>>>>>>>>>>>>")
     print(response.json())
+    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 
 def get_virus_total_analysis(sha_256):
     '''
     I made a virus total account for the api key.
     here's my key: 5e6d601d5b50d952371389fa2b363a86cfc41c9e5a7278bb53f9da03b0521934
     '''
-    api_key = "5e6d601d5b50d952371389fa2b363a86cfc41c9e5a7278bb53f9da03b0521934"
-    vt = VirusTotalPublicApi(api_key)
-    response = vt.get_file_report(sha_256)
     params = {'apikey': api_key, 'resource': sha_256}
     try:
         response = requests.get("https://www.virustotal.com/vtapi/v2/" + 'file/report', params=params, timeout=None)
@@ -108,9 +110,11 @@ def do_file_analysis(filename, check_mime=True, check_sha256=True, output_path_f
     Calculate SHA-256, Mime type, check for VirusTotal analysis with hash file and then 
     add it to csv file
     '''
-    
+    global total_files_scanned
+
     file_content = []
     sha_256 = ""
+    file_content.append(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     file_content.append(os.path.basename(filename))
     file_content.append(os.stat(filename).st_size)
     if (check_sha256 == True):
@@ -123,20 +127,31 @@ def do_file_analysis(filename, check_mime=True, check_sha256=True, output_path_f
 
     if (check_sha256 == True):
         is_malicious_dict = get_virus_total_analysis(sha_256)
-        print(is_malicious_dict)
-        if ("positives" not in is_malicious_dict["results"]):
-            file_content.append("Not Scanned in VirusTotal")
-        elif (is_malicious_dict["results"]["positives"] != 0):
-            file_content.append("Malicious")
+        file_result = ""
+        if "error" in is_malicious_dict:
+            file_result = is_malicious_dict["error"]
+        elif "positives" not in is_malicious_dict["results"]:
+            file_result = "Not Scanned in VirusTotal"
+        elif is_malicious_dict["results"]["positives"] != 0:
+            file_result = "Malicious"
         else:
-            file_content.append("Benign") 
-   
+            file_result = "Benign"
+        file_content.append(file_result)
+        total_files_scanned = total_files_scanned + 1
+        print("File Result : ", file_result)
+        for remaining in range(16, 0, -1):
+            sys.stdout.write("\r")
+            sys.stdout.write("{:2d} seconds remaining for next analysis".format(remaining))
+            sys.stdout.flush()
+            time.sleep(1)
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
+
     if (len(output_path_file) != 0):
 
         # Add header if file is a new file
         my_file = Path(output_path_file)
         if not my_file.is_file():
-            file_header = ["FileName", "FileSize", "SHA-256", "MimeType", "VirusTotal result",]
+            file_header = ["Date", "FileName", "FileSize", "SHA-256", "MimeType", "VirusTotal result",]
             append_to_csv_file(output_path_file, file_header)
 
         append_to_csv_file(output_path_file, file_content)
@@ -158,10 +173,13 @@ if __name__ == '__main__':
                 if (args.mode == "submit"):
                     # There is a limit of 4 transactions per minute so we will limit it by 20 seconds per request
                     send_file_to_virus_total(entry.path)
+                    print("Waiting for 20 seconds to send the next file for analysis ")
                     time.sleep(20)
                 elif (args.mode == "analyse"):
                     do_file_analysis(entry.path,output_path_file = args.write_to_csv)
                 else:
                     print("Invalid mode : valid is (submit/analyse)")
                     break
+
+
 
