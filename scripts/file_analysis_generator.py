@@ -11,6 +11,7 @@ __copyright__   = "Copyright 2020, Project Zeek"
 import hashlib
 import argparse
 import sys
+import glob
 import datetime
 import time
 import os
@@ -166,20 +167,20 @@ if __name__ == '__main__':
                         help='Scan mode: submit files/retrieve files')
     args = parser.parse_args()
 
-    with os.scandir(args.workspace) as directory:
-        for entry in directory:
-            if entry.is_file():
-                print("File Name: ", entry.name, "Path: ", entry.path)
-                if (args.mode == "submit"):
-                    # There is a limit of 4 transactions per minute so we will limit it by 20 seconds per request
-                    send_file_to_virus_total(entry.path)
-                    print("Waiting for 20 seconds to send the next file for analysis ")
-                    time.sleep(20)
-                elif (args.mode == "analyse"):
-                    do_file_analysis(entry.path,output_path_file = args.write_to_csv)
-                else:
-                    print("Invalid mode : valid is (submit/analyse)")
-                    break
+    for currentpath, folders, files in os.walk(args.workspace):
+
+        for entry in files:
+            print("File Name: ", entry, "Path: ", currentpath)
+            if (args.mode == "submit"):
+                # There is a limit of 4 transactions per minute so we will limit it by 20 seconds per request
+                send_file_to_virus_total(currentpath + "/" + entry)
+                print("Waiting for 20 seconds to send the next file for analysis ")
+                time.sleep(20)
+            elif (args.mode == "analyse"):
+                do_file_analysis(currentpath + "/" + entry,output_path_file = args.write_to_csv)
+            else:
+                print("Invalid mode : valid is (submit/analyse)")
+                break
 
 
 
